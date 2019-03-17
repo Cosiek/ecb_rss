@@ -2,7 +2,7 @@
 # encoding: utf-8
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from urllib.parse import urlparse, urlunparse
 from xml.etree import ElementTree
@@ -85,9 +85,14 @@ async def scrap(url, session):
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     while True:
+        start_time = datetime.now()
         session = aiohttp.ClientSession()
         # get feed data
         scrapped_data = loop.run_until_complete(
             scrap('https://www.ecb.europa.eu/home/html/rss.en.html', session)
         )
         loop.run_until_complete(session.close())
+        # wait till next run
+        # TODO: I assume this should run once a day at some given time.
+        wait_time = start_time + timedelta(hours=24) - datetime.now()
+        loop.run_until_complete(asyncio.sleep(wait_time.total_seconds()))
