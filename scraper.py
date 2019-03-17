@@ -40,11 +40,11 @@ async def get_feed_data(url, session):
         # TODO: handle this somehow
         return
 
-    data = []
+    data_dct = {}
     tree = ElementTree.fromstring(txt)
     # There should be a better way to do this
     for item in tree.findall("{http://purl.org/rss/1.0/}item"):
-        data_dct = {}
+        dct = {}
         for entry in item:
             if entry.tag.endswith('statistics'):
                 for stats_entry in entry:
@@ -52,13 +52,14 @@ async def get_feed_data(url, session):
                         # exchange rate entry - aka ere
                         for ere in stats_entry:
                             if ere.tag.endswith('value'):
-                                data_dct['value'] = Decimal(ere.text)
+                                dct['value'] = Decimal(ere.text)
                             elif ere.tag.endswith('targetCurrency'):
-                                data_dct['targetCurrency'] = ere.text
+                                dct['targetCurrency'] = ere.text
             elif entry.tag.endswith('date'):
-                data_dct['date'] = parse_date(entry.text)
-        data.append(data_dct)
-    return data
+                dct['date'] = parse_date(entry.text)
+        if data_dct.get('date') is None or data_dct['date'] < dct['date']:
+            data_dct = dct
+    return data_dct
 
 
 def parse_date(date_str):
