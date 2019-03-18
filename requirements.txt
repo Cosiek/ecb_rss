@@ -1,3 +1,4 @@
 aiohttp==3.5.4
 django==2.1.7
+djangorestframework==3.9.2
 pyquery==1.4.0
