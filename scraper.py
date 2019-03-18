@@ -3,12 +3,14 @@
 
 import asyncio
 from datetime import datetime, timedelta
-from decimal import Decimal
+import sqlite3
 from urllib.parse import urlparse, urlunparse
 from xml.etree import ElementTree
 
 import aiohttp
 from pyquery import PyQuery as pq
+
+from rest_endpoint.settings import DATABASES
 
 
 async def get_url_content(url, session):
@@ -52,7 +54,7 @@ async def get_feed_data(url, session):
                         # exchange rate entry - aka ere
                         for ere in stats_entry:
                             if ere.tag.endswith('value'):
-                                dct['value'] = Decimal(ere.text)
+                                dct['value'] = ere.text
                             elif ere.tag.endswith('targetCurrency'):
                                 dct['targetCurrency'] = ere.text
             elif entry.tag.endswith('date'):
@@ -79,8 +81,34 @@ async def scrap(url, session):
     # read data from rss
     data = await asyncio.gather(*[get_feed_data(l, session) for l in links])
     # filter out failed requests
-    data = filter(None, data)
-    return data
+    return list(filter(None, data))
+
+
+def write_data_to_db(data):
+    # TODO: switch to async once production ready db is in place
+    # get db connection and cursor
+    conn = sqlite3.connect(DATABASES['default']['NAME'])
+    cur = conn.cursor()
+    # insert currencies (if there are any new ones)
+    sql = ("INSERT OR IGNORE INTO currency_currency (name) "
+           "VALUES (:targetCurrency)")
+    cur.executemany(sql, data)
+    # insert exchange rates (only if updated)
+    sql = ("INSERT INTO currency_exchangerate (value_time, value, currency_id) "
+           "SELECT :date, :value, currency_currency.id "
+           "FROM currency_currency "
+           "LEFT JOIN currency_exchangerate "
+           "ON currency_currency.id = currency_exchangerate.currency_id "
+           "WHERE currency_currency.name=:targetCurrency "
+           "GROUP BY currency_currency.id "
+           "HAVING (MAX(currency_exchangerate.value_time) < :date "
+           "OR COUNT(currency_exchangerate.id) = 0)")
+    # hmm - probably could have done it with ORDER BY and LIMIT 1 - och well.
+    cur.executemany(sql, data)
+    # save (commit) the changes
+    conn.commit()
+    # close connection
+    conn.close()
 
 
 if __name__ == "__main__":
@@ -93,6 +121,8 @@ if __name__ == "__main__":
             scrap('https://www.ecb.europa.eu/home/html/rss.en.html', session)
         )
         loop.run_until_complete(session.close())
+        # write data to db
+        write_data_to_db(scrapped_data)
         # wait till next run
         # TODO: I assume this should run once a day at some given time.
         wait_time = start_time + timedelta(hours=24) - datetime.now()
