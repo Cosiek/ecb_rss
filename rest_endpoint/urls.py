@@ -9,4 +9,5 @@ from rest_endpoint.currency import views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('history', views.HistoricExchangeRatesView.as_view()),
+    path('current', views.CurrentExchangeRatesView.as_view()),
 ]

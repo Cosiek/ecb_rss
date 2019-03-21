@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from .models import Currency, ExchangeRate
@@ -19,3 +21,15 @@ class HistoricExchangeRatesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Currency
         fields = ('name', 'rates')
+
+
+class CurrentExchangeRatesSerializer(serializers.ModelSerializer):
+    value = serializers.SerializerMethodField()
+    value_time = serializers.DateTimeField()
+
+    class Meta:
+        model = Currency
+        fields = ('name', 'value', 'value_time')
+
+    def get_value(self, obj):
+        return Decimal(obj.value)
