@@ -29,7 +29,7 @@ Aplikacja django wystawiająca te dane po REST API. Udostępnia dwa widoki:
 
 ## Uruchomienie
 
- - utwórz i aktywuj virtualenv (Python3.6)
+ - utwórz i aktywuj virtualenv (Python3.8)
  - zainstaluj zależności - `pip install -r requirements.txt`
  - wykonaj migracje django - `python manage.py migrate`
  - uruchom scrappera - `python scrapper.py`
