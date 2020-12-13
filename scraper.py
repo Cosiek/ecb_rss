@@ -4,6 +4,7 @@
 import asyncio
 from datetime import datetime, timedelta
 import sqlite3
+import time
 from urllib.parse import urlparse, urlunparse
 from xml.etree import ElementTree
 
@@ -70,18 +71,19 @@ def parse_date(date_str):
     return dt
 
 
-async def scrap(url, session):
+async def scrap(url):
     # get content of ecb rss page
-    status, txt = await get_url_content(url, session)
-    if status != 200:
-        # TODO: handle this somehow (maybe keep knocking)
-        return
-    # get rss links list
-    links = get_links(url, txt)
-    # read data from rss
-    data = await asyncio.gather(*[get_feed_data(l, session) for l in links])
-    # filter out failed requests
-    return list(filter(None, data))
+    async with aiohttp.ClientSession() as session:
+        status, txt = await get_url_content(url, session)
+        if status != 200:
+            # TODO: handle this somehow (maybe keep knocking)
+            return
+        # get rss links list
+        links = get_links(url, txt)
+        # read data from rss
+        data = await asyncio.gather(*[get_feed_data(l, session) for l in links])
+        # filter out failed requests
+        return list(filter(None, data))
 
 
 def write_data_to_db(data):
@@ -115,15 +117,13 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     while True:
         start_time = datetime.now()
-        session = aiohttp.ClientSession()
         # get feed data
         scrapped_data = loop.run_until_complete(
-            scrap('https://www.ecb.europa.eu/home/html/rss.en.html', session)
+            scrap('https://www.ecb.europa.eu/home/html/rss.en.html')
         )
-        loop.run_until_complete(session.close())
         # write data to db
         write_data_to_db(scrapped_data)
         # wait till next run
         # TODO: I assume this should run once a day at some given time.
         wait_time = start_time + timedelta(hours=24) - datetime.now()
-        loop.run_until_complete(asyncio.sleep(wait_time.total_seconds()))
+        time.sleep(wait_time.total_seconds())
